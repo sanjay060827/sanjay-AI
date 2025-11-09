@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail if temporary global.d.ts shim exists
+        run: |
+          if [ -f src/global.d.ts ]; then
+            echo "Temporary file src/global.d.ts must be removed before merging.\nAdd proper types by running npm install locally and remove the shim.";
+            ls -l src/global.d.ts || true;
+            exit 1;
+          else
+            echo "No global.d.ts shim present. OK.";
+          fi
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build (optional)
+        run: npm run build --if-present

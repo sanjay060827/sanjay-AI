@@ -5,61 +5,40 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { IndianRupee, Tag, Calendar, Percent } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useActiveOffers } from "@/hooks/use-database";
+import { Offer } from "@/lib/supabase";
 
-const offersList = [
+// Fallback offers if database is not set up
+const fallbackOffers: Offer[] = [
   {
-    id: "c001",
-    code: "VEGSTART",
-    name: "Veg Breakfast Combo",
-    price: 80,
-    items: "Idly + Vada + Cold Coffee",
-    percentage: 10,
-    validFrom: "2025-11-01",
-    validTo: "2025-12-31",
-    image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=400&auto=format&fit=crop"
+    id: "o001",
+    title: "Weekend Special",
+    description: "Get 20% off on all orders this weekend!",
+    discount_percentage: 20,
+    valid_from: new Date().toISOString(),
+    valid_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    active: true,
+    created_at: new Date().toISOString()
   },
   {
-    id: "c002",
-    code: "CHICKDEAL",
-    name: "Chicken Combo",
-    price: 120,
-    items: "Chicken Roll + Fries + Drink",
-    percentage: 15,
-    validFrom: "2025-11-01",
-    validTo: "2025-12-31",
-    image: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=400&auto=format&fit=crop"
-  },
-  {
-    id: "c003",
-    code: "SNACKS50",
-    name: "Snack Saver",
-    price: 60,
-    items: "Samosa + Tea + Biscuit",
-    percentage: 20,
-    validFrom: "2025-11-01",
-    validTo: "2025-12-31",
-    image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&auto=format&fit=crop"
-  },
-  {
-    id: "c004",
-    code: "BIRYANI25",
-    name: "Biryani Bonanza",
-    price: 180,
-    items: "Chicken Biryani + Raita + Gulab Jamun",
-    percentage: 25,
-    validFrom: "2025-11-01",
-    validTo: "2025-12-31",
-    image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&auto=format&fit=crop"
+    id: "o002",
+    title: "Student Discount",
+    description: "Special 15% discount for students",
+    discount_percentage: 15,
+    valid_from: new Date().toISOString(),
+    valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    active: true,
+    created_at: new Date().toISOString()
   }
 ];
 
 export default function Offers() {
   const [offerCode, setOfferCode] = useState("");
   const { toast } = useToast();
-
-  useEffect(() => {
-    localStorage.setItem("offersList", JSON.stringify(offersList));
-  }, []);
+  
+  // Fetch active offers from database (fallback to local data if not available)
+  const { data: dbOffers, isLoading } = useActiveOffers();
+  const offersList = dbOffers || fallbackOffers;
 
   const applyOffer = () => {
     const code = offerCode.trim().toUpperCase();
@@ -72,8 +51,9 @@ export default function Offers() {
       return;
     }
 
-    const offers = JSON.parse(localStorage.getItem("offersList") || "[]");
-    const found = offers.find((o: any) => o.code && o.code.toUpperCase() === code);
+    if (!offersList) return;
+
+    const found = offersList.find((o) => o.title.toUpperCase().includes(code));
 
     if (!found) {
       toast({
@@ -85,7 +65,7 @@ export default function Offers() {
     }
 
     const now = new Date();
-    if (found.validFrom && new Date(found.validFrom) > now) {
+    if (new Date(found.valid_from) > now) {
       toast({
         title: "Not Active",
         description: "This offer is not active yet",
@@ -94,7 +74,7 @@ export default function Offers() {
       return;
     }
 
-    if (found.validTo && new Date(found.validTo) < now) {
+    if (new Date(found.valid_until) < now) {
       toast({
         title: "Expired",
         description: "This offer has expired",
@@ -107,20 +87,20 @@ export default function Offers() {
     const subtotal = cart.reduce((s: number, i: any) => s + i.price * i.qty, 0);
 
     let discount = 0;
-    if (found.percentage) {
-      discount = Math.floor((subtotal * found.percentage) / 100);
+    if (found.discount_percentage) {
+      discount = Math.floor((subtotal * found.discount_percentage) / 100);
     }
 
     const newTotal = subtotal - discount;
-    sessionStorage.setItem("appliedOffer", JSON.stringify({ code: found.code, discount, newTotal, percentage: found.percentage }));
+    sessionStorage.setItem("appliedOffer", JSON.stringify({ code: found.title, discount, newTotal, percentage: found.discount_percentage }));
 
     toast({
       title: "Offer Applied!",
-      description: `You saved ₹${discount} with ${found.name}`,
+      description: `You saved ₹${discount} with ${found.title}`,
     });
   };
 
-  const addComboToCart = (combo: any) => {
+  const addComboToCart = (combo: Offer) => {
     const cart = JSON.parse(sessionStorage.getItem("cartArray") || "[]");
     const existing = cart.find((c: any) => c.id === combo.id);
 
@@ -135,9 +115,21 @@ export default function Offers() {
 
     toast({
       title: "Added to cart!",
-      description: `${combo.name} has been added to your cart.`,
+      description: `${combo.title} has been added to your cart.`,
     });
   };
+
+  // Show loading only if we're fetching and don't have fallback data
+  if (isLoading && !offersList.length) {
+    return (
+      <div className="min-h-screen py-8 px-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading offers...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -159,7 +151,7 @@ export default function Offers() {
             </p>
             <div className="flex gap-2 max-w-md">
               <Input
-                placeholder="Enter offer code (e.g., VEGSTART)"
+                placeholder="Enter offer code"
                 value={offerCode}
                 onChange={(e) => setOfferCode(e.target.value)}
                 className="uppercase"
@@ -171,65 +163,60 @@ export default function Offers() {
 
         {/* Combo Deals Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {offersList.map((combo) => (
+          {offersList.length > 0 ? (
+            offersList.map((combo) => (
             <Card key={combo.id} className="overflow-hidden group hover:shadow-lg transition-all">
               <div className="relative h-48 overflow-hidden">
                 <img
-                  src={combo.image}
-                  alt={combo.name}
+                  src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&auto=format&fit=crop"
+                  alt={combo.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                 />
                 <Badge className="absolute top-3 right-3 bg-green-600 text-white">
                   <Percent className="h-3 w-3 mr-1" />
-                  {combo.percentage}% OFF
+                  {combo.discount_percentage}% OFF
                 </Badge>
               </div>
 
               <CardContent className="pt-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline" className="font-mono">
-                    {combo.code}
-                  </Badge>
-                </div>
-                <h3 className="text-xl font-semibold mb-2">{combo.name}</h3>
-                <p className="text-sm text-muted-foreground mb-3">{combo.items}</p>
+                <h3 className="text-xl font-semibold mb-2">{combo.title}</h3>
+                <p className="text-sm text-muted-foreground mb-3">{combo.description}</p>
 
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center text-2xl font-bold text-primary">
-                    <IndianRupee className="h-5 w-5" />
-                    {combo.price}
-                  </div>
                   <div className="text-sm text-muted-foreground">
-                    Save {combo.percentage}%
+                    Save {combo.discount_percentage}%
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Calendar className="h-3 w-3" />
-                  Valid till {new Date(combo.validTo).toLocaleDateString()}
+                  Valid till {new Date(combo.valid_until).toLocaleDateString()}
                 </div>
               </CardContent>
 
               <CardFooter className="gap-2">
-                <Button onClick={() => addComboToCart(combo)} className="flex-1">
-                  Add to Cart
-                </Button>
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setOfferCode(combo.code);
-                    navigator.clipboard.writeText(combo.code);
+                    setOfferCode(combo.title);
+                    navigator.clipboard.writeText(combo.title);
                     toast({
                       title: "Code Copied!",
-                      description: `${combo.code} copied to clipboard`,
+                      description: `${combo.title} copied to clipboard`,
                     });
                   }}
+                  className="flex-1"
                 >
                   Copy Code
                 </Button>
               </CardFooter>
             </Card>
-          ))}
+          ))
+          ) : (
+            <div className="col-span-full text-center py-16">
+              <p className="text-xl text-muted-foreground">No active offers available at the moment</p>
+            </div>
+          )}
         </div>
 
         {/* How to Use Section */}

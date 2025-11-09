@@ -210,6 +210,38 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Stats Section */}
+      <section className="py-16 px-4">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <Card className="text-center">
+              <CardContent className="pt-6">
+                <div className="text-4xl font-bold text-primary mb-2">50+</div>
+                <p className="text-muted-foreground">Menu Items</p>
+              </CardContent>
+            </Card>
+            <Card className="text-center">
+              <CardContent className="pt-6">
+                <div className="text-4xl font-bold text-primary mb-2">1000+</div>
+                <p className="text-muted-foreground">Happy Students</p>
+              </CardContent>
+            </Card>
+            <Card className="text-center">
+              <CardContent className="pt-6">
+                <div className="text-4xl font-bold text-primary mb-2">5</div>
+                <p className="text-muted-foreground">Cuisines</p>
+              </CardContent>
+            </Card>
+            <Card className="text-center">
+              <CardContent className="pt-6">
+                <div className="text-4xl font-bold text-primary mb-2">15min</div>
+                <p className="text-muted-foreground">Avg Pickup</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* Announcements */}
       <section className="py-16 px-4 bg-secondary">
         <div className="container mx-auto">
